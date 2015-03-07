@@ -157,7 +157,7 @@ mrb_inotify_notifier_add_watch(mrb_state* mrb, mrb_value self)
 
   mrb_get_args(mrb, "Sa", &path, &flags, &flags_len);
 
-  wd = inotify_add_watch(fd, mrb_string_value_cstr(mrb, &path), 
+  wd = inotify_add_watch(fd, mrb_string_value_cstr(mrb, &path),
     mrb_inotify_flags_array_to_mask(mrb, flags, flags_len));
 
   if((-1) == wd)
@@ -181,13 +181,14 @@ mrb_inotify_notifier_rm_watch(mrb_state* mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+#define EVENT_SIZE (sizeof(struct inotify_event) + NAME_MAX + 1)
+#define EVENT_BUFLEN (1024 * EVENT_SIZE)
+
 static mrb_value
 mrb_inotify_notifier_read_events(mrb_state* mrb, mrb_value self)
 {
   // Events coming from inotify have a length of sizeof(struct inotify_event)
   // + event->len (length of the event->name field).
-  static const ssize_t EVENT_SIZE   = sizeof(struct inotify_event) + NAME_MAX + 1;
-  static const ssize_t EVENT_BUFLEN = 1024 * EVENT_SIZE;
 
   mrb_value block;
   int       fd;
@@ -200,13 +201,13 @@ mrb_inotify_notifier_read_events(mrb_state* mrb, mrb_value self)
 
   fd = mrb_fixnum(mrb_iv_get(mrb, self, mrb_intern_lit(mrb, "@fd")));
 
-  nread = read(fd, buffer, EVENT_BUFLEN); 
+  nread = read(fd, buffer, EVENT_BUFLEN);
   if((-1) == nread)
     mrb_sys_fail(mrb, strerror(errno));
 
   for(i = 0; i < nread;) {
     event = (ino_ev_t*) &buffer[i];
-    mrb_yield(mrb, block, mrb_inotify_event_from_struct(mrb, event)); 
+    mrb_yield(mrb, block, mrb_inotify_event_from_struct(mrb, event));
     i += sizeof(struct inotify_event) + event->len;
   }
 
